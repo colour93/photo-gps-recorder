@@ -8,6 +8,7 @@ PowerManager::PowerManager(int batteryVoltagePin)
 // 初始化引脚模式
 void PowerManager::begin()
 {
+    Serial.println("Power manager is enabled");
     pinMode(batteryVoltagePin, INPUT);
 }
 

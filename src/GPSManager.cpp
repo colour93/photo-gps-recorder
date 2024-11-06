@@ -7,10 +7,15 @@ GPSManager::GPSManager(int rxPin, int txPin)
 // 初始化 GPS 模块
 void GPSManager::begin()
 {
+  Serial.println("GPS manager is enabled");
   serialGPS.begin(9600, SERIAL_8N1, rxPin, txPin);
 }
 
-// 更新 GPS 数据，返回是否有新数据
+bool GPSManager::available()
+{
+  return serialGPS.available();
+}
+
 bool GPSManager::update()
 {
   while (serialGPS.available())
