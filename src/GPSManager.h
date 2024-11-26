@@ -12,9 +12,12 @@ public:
   void begin();
 
   bool available();
-  bool update();
+  void update();
+  bool isLocationValid();
   double getLatitude();
   double getLongitude();
+  bool isTimeValid();
+  String getTimeString();
   unsigned long getTime();
 
 private:

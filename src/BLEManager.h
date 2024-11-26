@@ -13,12 +13,16 @@ class BLEManager
 public:
   BLEManager();
   void begin();
-  String getWifiMac();
+  void updateTime(unsigned long time);
+  void updateLocation(String location);
 
 private:
-  BLEServer *pServer;                 // BLEServer 实例，用于 BLE 服务
-  BLEService *pService;               // BLE 服务
-  BLECharacteristic *pCharacteristic; // BLE 特征
+  BLEServer *pServer;                         // BLEServer 实例，用于 BLE 服务
+  BLEService *pService;                       // BLE 服务
+  BLECharacteristic *pTimeCharacteristic;     // BLE 特征
+  BLECharacteristic *pLocationCharacteristic; // BLE 特征
+  // BLECharacteristic *pBatteryCharacteristic; // BLE 特征
+  BLECharacteristic *pModeCharacteristic; // BLE 特征
 };
 
 #endif
