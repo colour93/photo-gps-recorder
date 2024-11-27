@@ -41,9 +41,12 @@ Ticker timer;
 void updateData();
 void updateDataDisplay();
 void updateIntervalDisplay();
+void perSecondTask();
+void updateGPSData();
 
 void setup()
 {
+  // 服务加载阶段
   Serial.begin(115200);
 
   Serial.println("▗▄▄▄▖▄▄▄▄ ▄▄▄▄ \n▐▌   █  █    █ \n▐▛▀▀▘▀▀▀█ ▀▀▀█ \n▐▌   ▄▄▄█ ▄▄▄█ \nx@fur93.icu\nGitHub: @colour93\nProduct Name: F93-PGR1 GPS Recorder");
@@ -92,36 +95,67 @@ void setup()
   if (ENABLE_OLED)
     display.display();
 
-  timer.attach(1, updateIntervalDisplay);
+  // 任务启动阶段
+  if (ENABLE_GPS)
+  {
+    while (!gpsManager.available())
+    {
+      Serial.println("GPS Not Available");
+      delay(1000);
+    }
+    timer.attach(1, perSecondTask);
+  }
+}
+
+void perSecondTask()
+{
+  if (ENABLE_OLED)
+    updateIntervalDisplay();
+  if ((millis() / 1000) % samplingInterval == 0)
+    updateData();
 }
 
 void updateDataDisplay()
 {
-  display.clearDisplay();
+  display.fillRect(0, 0, SCREEN_WIDTH, 8 * 5, SSD1306_BLACK);
   display.setCursor(0, 0);
-  display.println("Time: " + gpsManager.getTimeString());
-  display.println("Location: " + String(gpsManager.gps.location.lat(), 6) + "," + String(gpsManager.gps.location.lng(), 6));
+  display.println(gpsManager.getTimeString());
+  display.println(String(gpsManager.gps.location.lat(), 6) + "," + String(gpsManager.gps.location.lng(), 6));
+  display.println("Altitude: " + String(gpsManager.gps.altitude.meters()));
+  display.println("Satellites: " + String(gpsManager.gps.satellites.value()));
+  unsigned char status = gpsManager.isDataReady();
+  String statusString = "";
+  if (status == 0)
+    statusString = "Not ";
+  if (status & 0b001)
+    statusString += "L ";
+  if (status & 0b010)
+    statusString += "T ";
+  if (status & 0b100)
+    statusString += "D ";
+  statusString += "Ready";
+  display.println("Status: " + statusString);
   display.display();
 }
 
 void updateIntervalDisplay()
 {
-  display.fillRect(0, SCREEN_HEIGHT - 10 * 2, SCREEN_WIDTH, 20, SSD1306_BLACK);
-  display.setCursor(0, SCREEN_HEIGHT - 10 * 2);
-  display.println("Interval: " + String(samplingInterval) + "s");
-  display.println("Next Update: " + String(samplingInterval - (millis() / 1000) % samplingInterval) + "s");
+  display.fillRect(0, SCREEN_HEIGHT - 8, SCREEN_WIDTH, 8, SSD1306_BLACK);
+  display.setCursor(0, SCREEN_HEIGHT - 8);
+  display.println(String(samplingInterval - (millis() / 1000) % samplingInterval) + "/" + String(samplingInterval) + " s");
   display.display();
-  if ((millis() / 1000) % samplingInterval == 0)
-    updateData();
 }
 
-void updateData()
+void updateGPSData()
 {
+
   if (!gpsManager.available())
   {
     Serial.println("GPS Not Available");
     return;
   }
+
+  gpsManager.wake();
 
   Serial.println("Updating Data...");
 
@@ -129,6 +163,8 @@ void updateData()
 
   Serial.println("Time: " + String(gpsManager.gps.time.value()));
   Serial.println("Location: " + String(gpsManager.gps.location.lat(), 6) + "," + String(gpsManager.gps.location.lng(), 6));
+  Serial.println("Altitude: " + String(gpsManager.gps.altitude.meters()));
+  Serial.println("Satellites: " + String(gpsManager.gps.satellites.value()));
 
   // 将数据广播
   bleManager.updateTime(gpsManager.getTime());
@@ -142,6 +178,14 @@ void updateData()
   Serial.println("Location: " + String(gpsManager.gps.location.lat(), 6) + "," + String(gpsManager.gps.location.lng(), 6));
 
   Serial.println("Data Updated.");
+
+  gpsManager.sleep();
+}
+
+void updateData()
+{
+  if (ENABLE_GPS)
+    updateGPSData();
 }
 
 void loop()

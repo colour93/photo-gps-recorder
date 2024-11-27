@@ -61,3 +61,28 @@ unsigned long GPSManager::getTime()
   }
   return 0;
 }
+
+// 判断地理位置和时间是否都已就绪
+unsigned char GPSManager::isDataReady()
+{
+  unsigned char ready = 0;
+  if (gps.location.isValid())
+    ready |= 0b001;
+  if (gps.time.isValid())
+    ready |= 0b010;
+  if (gps.date.isValid())
+    ready |= 0b100;
+  return ready;
+}
+
+void GPSManager::sleep()
+{
+  // 发送 PMTK 命令使 GPS 模块进入待机模式
+  serialGPS.println("$PMTK161,0*28");
+}
+
+void GPSManager::wake()
+{
+  // 发送任意字符以唤醒 GPS 模块
+  serialGPS.write(0xFF);
+}
