@@ -7,23 +7,20 @@
 class GPSManager
 {
 public:
-  GPSManager(int rxPin, int txPin);
+  GPSManager(int rxPin, int txPin, int baud);
+
+  TinyGPSPlus gps;
 
   void begin();
-
-  bool available();
   void update();
-  bool isLocationValid();
-  double getLatitude();
-  double getLongitude();
-  bool isTimeValid();
+  bool available();
   String getTimeString();
   unsigned long getTime();
 
 private:
   int rxPin;
   int txPin;
-  TinyGPSPlus gps;
+  int baud;
   HardwareSerial serialGPS;
 };
 
