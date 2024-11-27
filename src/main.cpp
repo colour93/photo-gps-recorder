@@ -43,6 +43,8 @@ void updateDataDisplay();
 void updateIntervalDisplay();
 void perSecondTask();
 void updateGPSData();
+void writeDataToFlash(String data);
+void readDataFromFlash();
 
 void setup()
 {
@@ -94,6 +96,12 @@ void setup()
 
   if (ENABLE_OLED)
     display.display();
+
+  if (!SPIFFS.begin(true))
+  {
+    Serial.println("SPIFFS Mount Failed");
+    return;
+  }
 
   // 任务启动阶段
   if (ENABLE_GPS)
@@ -176,8 +184,7 @@ void updateGPSData()
   if (ENABLE_OLED)
     updateDataDisplay();
 
-  Serial.println("Time: " + gpsManager.getTimeString());
-  Serial.println("Location: " + String(gpsManager.gps.location.lat(), 6) + "," + String(gpsManager.gps.location.lng(), 6));
+  writeDataToFlash(gpsManager.getTimeString() + "," + String(gpsManager.gps.location.lat(), 6) + "," + String(gpsManager.gps.location.lng(), 6) + "," + String(gpsManager.gps.altitude.meters()));
 
   Serial.println("Data Updated.");
 
@@ -190,6 +197,49 @@ void updateData()
     updateGPSData();
 }
 
+void writeDataToFlash(String data)
+{
+  File file = SPIFFS.open("/data.csv", FILE_APPEND); // 以追加模式打开文件
+  if (!file)
+  {
+    Serial.println("Failed to open file for writing");
+    return;
+  }
+  file.println(data); // 写入数据
+  file.close();       // 关闭文件
+}
+
+void readDataFromFlash()
+{
+  File file = SPIFFS.open("/data.csv", FILE_READ); // 以读取模式打开文件
+  if (!file)
+  {
+    Serial.println("Failed to open file for reading");
+    return;
+  }
+
+  Serial.println("Reading data from Flash:");
+  while (file.available())
+  {
+    String line = file.readStringUntil('\n'); // 逐行读取
+    Serial.println(line);                     // 打印读取的行
+  }
+  file.close(); // 关闭文件
+}
+
 void loop()
 {
+  if (Serial.available())
+  {
+    String command = Serial.readStringUntil('\n'); // 读取直到换行符
+    if (command.equals("AT+FPGRDATA=1"))
+    {
+      readDataFromFlash();
+    }
+    if (command.equals("AT+FPGRCLRDATA=1"))
+    {
+      SPIFFS.remove("/data.csv");
+      Serial.println("Data Cleared.");
+    }
+  }
 }
