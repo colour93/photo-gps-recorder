@@ -14,15 +14,20 @@ public:
   BLEManager();
   void begin();
   void updateTime(unsigned long time);
-  void updateLocation(String location);
+  void updateLocation(float latitude, float longitude, float altitude);
+  void updateSatellites(int satellites);
+  void updateStatus(unsigned char status);
 
 private:
   BLEServer *pServer;                         // BLEServer 实例，用于 BLE 服务
   BLEService *pService;                       // BLE 服务
   BLECharacteristic *pTimeCharacteristic;     // BLE 特征
-  BLECharacteristic *pLocationCharacteristic; // BLE 特征
+  BLECharacteristic *pLatitudeCharacteristic; // BLE 特征
   // BLECharacteristic *pBatteryCharacteristic; // BLE 特征
-  BLECharacteristic *pModeCharacteristic; // BLE 特征
+  BLECharacteristic *pLongitudeCharacteristic; // BLE 特征
+  BLECharacteristic *pAltitudeCharacteristic;   // BLE 特征
+  BLECharacteristic *pSatellitesCharacteristic; // BLE 特征
+  BLECharacteristic *pStatusCharacteristic;    // BLE 特征
 };
 
 #endif

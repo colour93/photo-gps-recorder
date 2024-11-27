@@ -168,7 +168,9 @@ void updateGPSData()
 
   // 将数据广播
   bleManager.updateTime(gpsManager.getTime());
-  bleManager.updateLocation(String(gpsManager.gps.location.lat(), 6) + "," + String(gpsManager.gps.location.lng(), 6));
+  bleManager.updateLocation(gpsManager.gps.location.lat(), gpsManager.gps.location.lng(), gpsManager.gps.altitude.meters());
+  bleManager.updateSatellites(gpsManager.gps.satellites.value());
+  bleManager.updateStatus(gpsManager.isDataReady());
 
   // 更新OLED显示
   if (ENABLE_OLED)

@@ -6,6 +6,9 @@
 #define LOCATION_SERVICE_UUID 0x1819
 #define LATITUDE_UUID 0x2AAE
 #define LONGITUDE_UUID 0x2AAF
+#define ALTITUDE_UUID 0x2AB3
+#define SATELLITES_UUID "9949ccda-9bbf-4a7d-b269-b5f0ac9f309b"
+#define STATUS_UUID "9949ccda-9bbf-4a7d-b269-b5f0ac9f309c"
 #define LOCAL_TIME_UUID 0x2A0F
 
 BLEManager::BLEManager() {}
@@ -35,13 +38,28 @@ void BLEManager::begin()
     BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
   );
 
-  pLocationCharacteristic = pService->createCharacteristic(
+  pLatitudeCharacteristic = pService->createCharacteristic(
     BLEUUID((uint16_t)LATITUDE_UUID),
     BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
   );
 
-  pModeCharacteristic = pService->createCharacteristic(
-    BLEUUID((uint16_t)LONGITUDE_UUID), 
+  pLongitudeCharacteristic = pService->createCharacteristic(
+    BLEUUID((uint16_t)LONGITUDE_UUID),
+    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
+  );
+
+  pAltitudeCharacteristic = pService->createCharacteristic(
+    BLEUUID((uint16_t)ALTITUDE_UUID),
+    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
+  );
+
+  pSatellitesCharacteristic = pService->createCharacteristic(
+    BLEUUID(SATELLITES_UUID),
+    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
+  );
+
+  pStatusCharacteristic = pService->createCharacteristic(
+    BLEUUID(STATUS_UUID),
     BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
   );
 
@@ -64,15 +82,27 @@ void BLEManager::updateTime(unsigned long time) {
   pTimeCharacteristic->notify();
 }
 
-void BLEManager::updateLocation(String location) {
-  // 分割经纬度字符串
-  int commaIndex = location.indexOf(',');
-  String latitude = location.substring(0, commaIndex);
-  String longitude = location.substring(commaIndex + 1);
-  
-  pLocationCharacteristic->setValue(latitude.c_str());
-  pLocationCharacteristic->notify();
-  
-  pModeCharacteristic->setValue(longitude.c_str());
-  pModeCharacteristic->notify();
+void BLEManager::updateLocation(float latitude, float longitude, float altitude) {
+  String latitudeStr = String(latitude, 6);
+  String longitudeStr = String(longitude, 6);
+  String altitudeStr = String(altitude, 6);
+
+  pLatitudeCharacteristic->setValue(latitudeStr.c_str());
+  pLatitudeCharacteristic->notify();
+
+  pLongitudeCharacteristic->setValue(longitudeStr.c_str());
+  pLongitudeCharacteristic->notify();
+
+  pAltitudeCharacteristic->setValue(altitudeStr.c_str());
+  pAltitudeCharacteristic->notify();
+}
+
+void BLEManager::updateSatellites(int satellites) {
+  pSatellitesCharacteristic->setValue(String(satellites).c_str());
+  pSatellitesCharacteristic->notify();
+}
+
+void BLEManager::updateStatus(unsigned char status) {
+  pStatusCharacteristic->setValue(String(status).c_str());
+  pStatusCharacteristic->notify();
 }
