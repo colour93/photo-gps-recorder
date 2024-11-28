@@ -184,7 +184,8 @@ void updateGPSData()
   if (ENABLE_OLED)
     updateDataDisplay();
 
-  writeDataToFlash(gpsManager.getTimeString() + "," + String(gpsManager.gps.location.lat(), 6) + "," + String(gpsManager.gps.location.lng(), 6) + "," + String(gpsManager.gps.altitude.meters()));
+  if (gpsManager.isDataReady() == 0b111)
+    writeDataToFlash(gpsManager.getTimeString() + "," + String(gpsManager.gps.location.lat(), 6) + "," + String(gpsManager.gps.location.lng(), 6) + "," + String(gpsManager.gps.altitude.meters()));
 
   Serial.println("Data Updated.");
 
