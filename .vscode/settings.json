@@ -17,6 +17,10 @@
     "string_view": "cpp",
     "initializer_list": "cpp",
     "optional": "cpp",
-    "system_error": "cpp"
+    "system_error": "cpp",
+    "*.tcc": "cpp",
+    "memory": "cpp",
+    "istream": "cpp",
+    "sstream": "cpp"
   }
 }

@@ -1,8 +1,10 @@
 #include <Ticker.h>
+#include <ArduinoJson.h>
 #include "BLEManager.h"
 #include "PowerManager.h"
 #include "GPSManager.h"
 #include "LBSManager.h"
+#include "StorageManager.h"
 
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -28,24 +30,35 @@
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
 
+#define STATUS_BAR_HEIGHT 8
+#define STATUS_BAR_WIDTH SCREEN_WIDTH
+#define STATUS_BAR_X 0
+#define STATUS_BAR_Y SCREEN_HEIGHT - STATUS_BAR_HEIGHT
+
+#define STORAGE_TYPE STORAGE_SPIFFS
+
+#define STORAGE_DATA_PATH "/data.csv"
+#define STORAGE_CONFIG_PATH "/config.json"
+
 int samplingInterval = 10;
+
+int debugMode = 0;
 
 BLEManager bleManager;
 GPSManager gpsManager(GPS_RX_PIN, GPS_TX_PIN, GPS_BAUD);
 PowerManager powerManager(BATTERY_VOLTAGE_PIN);
 LBSManager lbsManager(LBS_RX_PIN, LBS_TX_PIN);
+StorageManager storageManager(STORAGE_TYPE);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 Ticker timer;
 
 void updateData();
 void updateDataDisplay();
-void updateIntervalDisplay();
+void updateStatusBar();
 void perSecondTask();
 void updateGPSData();
-void writeDataToFlash(String data);
-void readDataFromFlash();
-
+JsonDocument loadConfig();
 void setup()
 {
   // 服务加载阶段
@@ -97,10 +110,25 @@ void setup()
   if (ENABLE_OLED)
     display.display();
 
-  if (!SPIFFS.begin(true))
+  if (!storageManager.begin())
   {
-    Serial.println("SPIFFS Mount Failed");
+    Serial.println("Storage Mount Failed");
     return;
+  }
+
+  if (storageManager.initialized)
+  {
+    JsonDocument config = loadConfig();
+    if (!config["samplingInterval"].isNull())
+    {
+      samplingInterval = config["samplingInterval"].as<int>();
+      Serial.println("Loaded sampling interval: " + String(samplingInterval));
+    }
+    if (!config["debugMode"].isNull())
+    {
+      debugMode = config["debugMode"].as<int>();
+      Serial.println("Loaded debug mode: " + String(debugMode));
+    }
   }
 
   // 任务启动阶段
@@ -115,10 +143,38 @@ void setup()
   }
 }
 
+JsonDocument loadConfig()
+{
+  String configStr = storageManager.readData(STORAGE_CONFIG_PATH);
+  JsonDocument config;
+  if (configStr != "")
+  {
+    DeserializationError error = deserializeJson(config, configStr);
+    if (error)
+      Serial.println("Failed to parse config file");
+  }
+  else
+  {
+    Serial.println("No config file found, using default config");
+  }
+  return config;
+}
+
+void saveConfig()
+{
+  JsonDocument rawConfig = loadConfig();
+  rawConfig["samplingInterval"] = samplingInterval;
+  rawConfig["debugMode"] = debugMode;
+
+  String configStr;
+  serializeJson(rawConfig, configStr);
+  storageManager.writeData(STORAGE_CONFIG_PATH, configStr);
+}
+
 void perSecondTask()
 {
   if (ENABLE_OLED)
-    updateIntervalDisplay();
+    updateStatusBar();
   if ((millis() / 1000) % samplingInterval == 0)
     updateData();
 }
@@ -146,17 +202,16 @@ void updateDataDisplay()
   display.display();
 }
 
-void updateIntervalDisplay()
+void updateStatusBar()
 {
-  display.fillRect(0, SCREEN_HEIGHT - 8, SCREEN_WIDTH, 8, SSD1306_BLACK);
-  display.setCursor(0, SCREEN_HEIGHT - 8);
+  display.fillRect(STATUS_BAR_X, STATUS_BAR_Y, STATUS_BAR_WIDTH, STATUS_BAR_HEIGHT, SSD1306_BLACK);
+  display.setCursor(STATUS_BAR_X, STATUS_BAR_Y);
   display.println(String(samplingInterval - (millis() / 1000) % samplingInterval) + "/" + String(samplingInterval) + " s");
   display.display();
 }
 
 void updateGPSData()
 {
-
   if (!gpsManager.available())
   {
     Serial.println("GPS Not Available");
@@ -165,14 +220,18 @@ void updateGPSData()
 
   gpsManager.wake();
 
-  Serial.println("Updating Data...");
+  if (debugMode)
+    Serial.println("Updating Data...");
 
   gpsManager.update();
 
-  Serial.println("Time: " + String(gpsManager.gps.time.value()));
-  Serial.println("Location: " + String(gpsManager.gps.location.lat(), 6) + "," + String(gpsManager.gps.location.lng(), 6));
-  Serial.println("Altitude: " + String(gpsManager.gps.altitude.meters()));
-  Serial.println("Satellites: " + String(gpsManager.gps.satellites.value()));
+  if (debugMode)
+  {
+    Serial.println("Time: " + String(gpsManager.gps.time.value()));
+    Serial.println("Location: " + String(gpsManager.gps.location.lat(), 6) + "," + String(gpsManager.gps.location.lng(), 6));
+    Serial.println("Altitude: " + String(gpsManager.gps.altitude.meters()));
+    Serial.println("Satellites: " + String(gpsManager.gps.satellites.value()));
+  }
 
   // 将数据广播
   bleManager.updateTime(gpsManager.getTime());
@@ -185,9 +244,10 @@ void updateGPSData()
     updateDataDisplay();
 
   if (gpsManager.isDataReady() == 0b111)
-    writeDataToFlash(gpsManager.getTimeString() + "," + String(gpsManager.gps.location.lat(), 6) + "," + String(gpsManager.gps.location.lng(), 6) + "," + String(gpsManager.gps.altitude.meters()));
+    storageManager.writeData(STORAGE_DATA_PATH, gpsManager.getTimeString() + "," + String(gpsManager.gps.location.lat(), 6) + "," + String(gpsManager.gps.location.lng(), 6) + "," + String(gpsManager.gps.altitude.meters()) + ",GPS");
 
-  Serial.println("Data Updated.");
+  if (debugMode)
+    Serial.println("Data Updated.");
 
   gpsManager.sleep();
 }
@@ -198,49 +258,51 @@ void updateData()
     updateGPSData();
 }
 
-void writeDataToFlash(String data)
-{
-  File file = SPIFFS.open("/data.csv", FILE_APPEND); // 以追加模式打开文件
-  if (!file)
-  {
-    Serial.println("Failed to open file for writing");
-    return;
-  }
-  file.println(data); // 写入数据
-  file.close();       // 关闭文件
-}
-
-void readDataFromFlash()
-{
-  File file = SPIFFS.open("/data.csv", FILE_READ); // 以读取模式打开文件
-  if (!file)
-  {
-    Serial.println("Failed to open file for reading");
-    return;
-  }
-
-  Serial.println("Reading data from Flash:");
-  while (file.available())
-  {
-    String line = file.readStringUntil('\n'); // 逐行读取
-    Serial.println(line);                     // 打印读取的行
-  }
-  file.close(); // 关闭文件
-}
-
 void loop()
 {
   if (Serial.available())
   {
     String command = Serial.readStringUntil('\n'); // 读取直到换行符
-    if (command.equals("AT+FPGRDATA=1"))
+    if (command.equals("AT+DATA=?"))
     {
-      readDataFromFlash();
+      String data = storageManager.readData(STORAGE_DATA_PATH);
+      if (data != "")
+        Serial.println(data);
+      else
+        Serial.println("No Data.");
     }
-    if (command.equals("AT+FPGRCLRDATA=1"))
+    else if (command.equals("AT+CLRDATA=1"))
     {
-      SPIFFS.remove("/data.csv");
-      Serial.println("Data Cleared.");
+      if (storageManager.clearData(STORAGE_DATA_PATH))
+        Serial.println("Data Cleared.");
+      else
+        Serial.println("Data Clear Failed.");
+    }
+    else if (command.equals("AT+CFGINTERVAL=?"))
+    {
+      Serial.println(String(samplingInterval));
+    }
+    else if (command.startsWith("AT+CFGINTERVAL="))
+    {
+      int interval = command.substring(15).toInt();
+      if (interval > 0)
+      {
+        samplingInterval = interval;
+        saveConfig();
+        Serial.println("Interval Saved.");
+      }
+      else
+        Serial.println("Invalid Interval.");
+    }
+    else if (command.equals("AT+CFGDEBUG=?"))
+    {
+      Serial.println(String(debugMode));
+    }
+    else if (command.startsWith("AT+CFGDEBUG="))
+    {
+      debugMode = command.substring(12).toInt();
+      saveConfig();
+      Serial.println("Debug Mode Saved.");
     }
   }
 }
