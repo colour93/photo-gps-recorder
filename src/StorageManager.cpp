@@ -4,6 +4,20 @@ StorageManager::StorageManager(StorageType type)
 {
   storageType = type;
   initialized = false;
+  sd_cs = -1;
+  sd_sck = -1;
+  sd_mosi = -1;
+  sd_miso = -1;
+}
+
+StorageManager::StorageManager(StorageType type, int8_t cs, int8_t sck, int8_t mosi, int8_t miso)
+{
+  storageType = type;
+  initialized = false;
+  sd_cs = cs;
+  sd_sck = sck;
+  sd_mosi = mosi;
+  sd_miso = miso;
 }
 
 bool StorageManager::begin()
@@ -19,10 +33,19 @@ bool StorageManager::begin()
   }
   else
   {
-    if (!SD.begin())
-    {
-      Serial.println("SD Card Init Failed");
-      return false;
+    if (sd_cs != -1) {
+      if (sd_sck != -1 && sd_mosi != -1 && sd_miso != -1) {
+        SPI.begin(sd_sck, sd_miso, sd_mosi, sd_cs);
+      }
+      if (!SD.begin(sd_cs)) {
+        Serial.println("SD Card Init Failed");
+        return false;
+      }
+    } else {
+      if (!SD.begin()) {
+        Serial.println("SD Card Init Failed");
+        return false;
+      }
     }
     initialized = true;
   }
