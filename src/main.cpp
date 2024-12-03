@@ -15,6 +15,15 @@
 #define ENABLE_BATTERY 0
 #define ENABLE_LBS 0
 
+#define BUTTON_COM 5
+#define BUTTON_UP 6
+#define BUTTON_DOWN 7
+#define BUTTON_LEFT 8
+#define BUTTON_RIGHT 9
+#define BUTTON_MIDDLE 10
+#define BUTTON_SET 20
+#define BUTTON_RESET 21
+
 #define GPS_TX_PIN 4
 #define GPS_RX_PIN 3
 #define GPS_BAUD 115200
